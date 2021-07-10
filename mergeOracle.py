@@ -44,11 +44,11 @@ def check(ip, api_key, fee, oracle_address, merge_to_address, max_value, max_box
 		while True:
 			val_in = input('Is ok send transaction (y/n):\n')
 			log("input is: {}".format(val_in))
-			if str(val_in) == ["y", "Y", "yes", "YES"]:
+			if str(val_in) in ["y", "Y", "yes", "YES"]:
 				res = requests.post('http://{}/wallet/transaction/send'.format(ip), headers=headers, data=json.dumps(out)).json()
 				log("sent transaction with id:" + res)
 				exit(0)
-			elif str(val_in) == ["n", "N", "no", "NO"]:
+			elif str(val_in) in ["n", "N", "no", "NO"]:
 				log("END")
 				exit(0)
 	else:
@@ -72,7 +72,7 @@ parser.add_argument('--apiKey', '-k', metavar='hello', type=str, required=True, 
 parser.add_argument('--oracleAddress', '-o', metavar='9fzRcctiWfzoJyqGtPWqoXPuxSmFw6zpnjtsQ1B6jSN514XqH4q', type=str, required=True, help='Your oracle address')
 parser.add_argument('--mergeToAddress', '-m', metavar='9fzRcctiWfzoJyqGtPWqoXPuxSmFw6zpnjtsQ1B6jSN514XqH4q', type=str, required=False, default='', help='your destination address (optional: default is your \'oracleAddress\')')
 parser.add_argument('--fee', '-f', metavar='0.0011', type=float, default=0.0011, required=False, help='Fee for send transaction (optional: default is %(default)s)')
-parser.add_argument('--maxValue', '-b', metavar='0.18', type=float, default=0.02, required=False, help='The box must have a maximum of \'maxValue\' erg enough to participate in the transaction (optional: default is %(default)s)')
+parser.add_argument('--maxValue', '-b', metavar='0.18', type=float, default=0.02, required=False, help='The box must have a maximum of \'maxValue\' erg to participate in the transaction (optional: default is %(default)s)')
 parser.add_argument('--maxBox', '-bx', metavar='50', type=int, default=50, required=False, help='The maximum number of boxes that can be present in a transaction (optional: default is %(default)s)')
 parser.add_argument('--minBox', '-bn', metavar='30', type=int, default=30, required=False, help='The minimum number of boxes that can be present in a transaction (optional: default is %(default)s)')
 parser.add_argument('--check', '-c', default=False, action='store_true', required=False, help='This parameter help to check information of tx before send it and question for send or no TX (optional: default is %(default)s)')
