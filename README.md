@@ -46,6 +46,7 @@ optional arguments:
 ```
 
 For start service with best practice options using this:
+
 Note: Tokens are not handled in this source code, so `Do not run` this code on the addresses where you keep your tokens, it will be possible to burn tokens.
 ```
 $ python3 auto_merge_oracle_box.py -i YOUR_NODE_ADDRESS -k YOUR_API_KEY -o YOUR_ORACLE_ADDRESS
