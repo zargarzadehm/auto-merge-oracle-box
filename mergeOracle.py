@@ -4,57 +4,74 @@ from datetime import datetime
 import argparse
 
 
-def check(ip, api_key, fee, oracle_address, merge_to_address, max_value, max_box, min_box, check_param):
-	headers = {
+box_ids = list()
+headers = {
 		'accept': 'application/json',
-		'api_key': api_key,
+		'api_key': 'api_key',
 		'Content-Type': 'application/json'
 	}
-	boxes = list()
-	valreq = 0
-	res = requests.get('http://{}/wallet/boxes/unspent'.format(ip), headers=headers).json()
-	for value in res:
-		if len(boxes) < max_box:
-			if value['address'] == oracle_address and value['box']['value'] <= max_value:
-				valreq += value['box']['value']
-				resBox = requests.get('http://{}/utxo/byIdBinary/{}'.format(ip, str(value['box']['boxId'])), headers=headers).json()
-				boxes.append(resBox["bytes"])
-			else:
-				continue
-		else:
-			break
 
-	valreq = int(valreq - fee)
-	if not valreq > (fee * 2) or not len(boxes) >= min_box:
-		log('There is not enough balance / box according to conditions for merge them, now there are {} ERG and {} box'.format((valreq / 1e9), len(boxes)))
-		exit(0)
-	out = {
-		"requests": [
-			{
-				"address": merge_to_address,
-				"value": valreq
-			}
-		],
-			"fee": fee,
-			"inputsRaw": boxes
-	}
-	log("value of transaction is {} with fee {} number of input is {} to addresss:\n{}".format(valreq / 1e9, fee / 1e9, len(boxes), merge_to_address))
-	
-	if check_param:
-		while True:
-			val_in = input('Is ok send transaction (y/n):\n')
-			log("input is: {}".format(val_in))
-			if str(val_in) in ["y", "Y", "yes", "YES"]:
-				res = requests.post('http://{}/wallet/transaction/send'.format(ip), headers=headers, data=json.dumps(out)).json()
-				log("sent transaction with id:" + res)
-				exit(0)
-			elif str(val_in) in ["n", "N", "no", "NO"]:
-				log("END")
-				exit(0)
-	else:
-		res = requests.post('http://{}/wallet/transaction/send'.format(ip), headers=headers, data=json.dumps(out)).json()
-		log("sent transaction with id:" + res)
-		exit(0)
+def add_box(value, boxes):
+	resBox = requests.get('http://{}/utxo/byIdBinary/{}'.format(ip, str(value['box']['boxId'])), headers=headers).json()
+	boxes.append(resBox["bytes"])
+	box_ids.append(str(value['box']['boxId']))
+	return value['box']['value']
+		
+
+def check(ip, fee, res, oracle_address, merge_to_address, max_value, max_box, min_box, check_param):
+	boxes = list()
+	batchs_boxes = list()
+	valreq = 0
+	for count, value in enumerate(res):
+		if len(boxes) < max_box:
+			if not (str(value['box']['boxId'])) in box_ids and value['address'] == oracle_address and value['box']['value'] <= max_value:
+				valreq += add_box(value, boxes)
+		elif len(boxes) >= max_box:
+			batchs_boxes.append({
+				"boxes": boxes,
+				"value": int(valreq - fee)
+			})
+			boxes = list()
+			valreq = 0
+			if value['address'] == oracle_address and value['box']['value'] <= max_value:
+				valreq += add_box(value, boxes)
+	batchs_boxes.append({
+		"boxes": boxes,
+		"value": int(valreq - fee)
+	})
+
+	for batch_boxes in batchs_boxes:
+		if not batch_boxes['value'] > (fee * 2) or not len(batch_boxes['boxes']) >= min_box:
+			log('There is not enough balance / box according to conditions for merge this group boxes, now there are {} ERG and {} box'.format((batch_boxes['value'] / 1e9), len(batch_boxes['boxes'])))
+			exit(0)
+		out = {
+			"requests": [
+				{
+					"address": merge_to_address,
+					"value": batch_boxes['value']
+				}
+			],
+				"fee": fee,
+				"inputsRaw": batch_boxes['boxes']
+		}
+		log("value of transaction is {} with fee {} number of input is {} to addresss:\n{}".format(batch_boxes['value'] / 1e9, fee / 1e9, len(batch_boxes['boxes']), merge_to_address))
+		
+		if check_param:
+			while True:
+				val_in = input('Is ok send transaction (y/n):\n')
+				log("input is: {}".format(val_in))
+				if str(val_in) in ["y", "Y", "yes", "YES"]:
+					res = requests.post('http://{}/wallet/transaction/send'.format(ip), headers=headers, data=json.dumps(out)).json()
+					log("sent transaction with id:" + res)
+					break
+				elif str(val_in) in ["n", "N", "no", "NO"]:
+					log("END")
+					exit(0)
+		else:
+			res = requests.post('http://{}/wallet/transaction/send'.format(ip), headers=headers, data=json.dumps(out)).json()
+			log("sent transaction with id:" + res)
+	exit(0)
+
 
 class CustomHelpFormatter(argparse.HelpFormatter):
     def _format_action_invocation(self, action):
@@ -83,7 +100,7 @@ args = parser.parse_args()
 ip = args.ip
 fee = int(args.fee * 1e9)
 max_value = int(args.maxValue * 1e9)
-api_key = args.apiKey
+headers['api_key'] = args.apiKey
 oracle_address = args.oracleAddress
 merge_to_address = oracle_address if args.mergeToAddress == '' else args.mergeToAddress
 max_box = args.maxBox
@@ -100,6 +117,7 @@ def log(text):
 
 try:
 	log("START APP:")
-	check(ip, api_key, fee, oracle_address, merge_to_address, max_value, max_box, min_box, check_param)
+	res = requests.get('http://{}/wallet/boxes/unspent'.format(ip), headers=headers).json()
+	check(ip, fee, res, oracle_address, merge_to_address, max_value, max_box, min_box, check_param)
 except Exception as err:
 	log("Unexpected error:" + str(err))
